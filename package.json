@@ -1,0 +1,25 @@
+{
+  "name": "scopeproof",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Voice-agent quality layer turning agreed scopes into executable test calls",
+  "scripts": {
+    "build": "pnpm --filter \"@scopeproof/*\" build",
+    "typecheck": "pnpm --filter \"@scopeproof/*\" typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "test": "pnpm --filter \"@scopeproof/*\" test"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "eslint": "9.17.0",
+    "prettier": "3.4.2",
+    "typescript": "5.7.2",
+    "typescript-eslint": "8.18.1"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
+

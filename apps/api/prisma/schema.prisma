@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ScopeStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum RuleKind {
+  MUST_ANSWER
+  NEVER_SAY
+  HANDOFF
+  DISCLOSURE
+}
+
+enum CaseSource {
+  GENERATED
+  REVIEW_PROMOTED
+  MANUAL
+}
+
+enum Carrier {
+  TELNYX
+  PLIVO
+  TWILIO
+}
+
+enum GateOutcome {
+  PASS
+  FALLBACK
+  REVIEW
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  EDITED
+  REJECTED
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  scopes    Scope[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Scope {
+  id        String      @id @default(cuid())
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  version   Int         @default(1)
+  status    ScopeStatus @default(DRAFT)
+  rules     Rule[]
+  facts     Fact[]
+  cases     TestCase[]
+  runs      Run[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([tenantId, version])
+}
+
+model Rule {
+  id        String   @id @default(cuid())
+  scopeId   String
+  scope     Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  kind      RuleKind
+  text      String
+  params    Json
+  createdAt DateTime @default(now())
+
+  @@index([scopeId, kind])
+}
+
+model Fact {
+  id        String   @id @default(cuid())
+  scopeId   String
+  scope     Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+
+  @@index([scopeId, key])
+}
+
+model TestCase {
+  id        String     @id @default(cuid())
+  scopeId   String
+  scope     Scope      @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  ruleId    String?
+  persona   Json
+  script    Json
+  language  String     @default("en")
+  source    CaseSource @default(MANUAL)
+  calls     Call[]
+  createdAt DateTime   @default(now())
+
+  @@index([scopeId, language])
+}
+
+model Run {
+  id            String    @id @default(cuid())
+  scopeId       String
+  scope         Scope     @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  promptVersion String
+  model         String
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  passRate      Float?
+  calls         Call[]
+
+  @@index([scopeId, startedAt])
+}
+
+model Call {
+  id           String     @id @default(cuid())
+  runId        String?
+  run          Run?       @relation(fields: [runId], references: [id], onDelete: SetNull)
+  caseId       String?
+  testCase     TestCase?  @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  carrier      Carrier    @default(TELNYX)
+  livekitRoom  String
+  recordingUrl String?
+  latencyP50Ms Int?
+  turns        Turn[]
+  followUps    FollowUp[]
+  createdAt    DateTime   @default(now())
+
+  @@index([runId])
+  @@index([livekitRoom])
+}
+
+model Turn {
+  id          String      @id @default(cuid())
+  callId      String
+  call        Call        @relation(fields: [callId], references: [id], onDelete: Cascade)
+  idx         Int
+  callerText  String
+  proposed    Json
+  spoken      String?
+  gate        GateOutcome
+  judgeScore  Float?
+  judgeReason String?
+  flags       String[]
+  reviewItem  ReviewItem?
+  createdAt   DateTime    @default(now())
+
+  @@index([callId, idx])
+}
+
+model ReviewItem {
+  id             String       @id @default(cuid())
+  turnId         String       @unique
+  turn           Turn         @relation(fields: [turnId], references: [id], onDelete: Cascade)
+  status         ReviewStatus @default(PENDING)
+  decidedBy      String?
+  decision       Json?
+  promotedCaseId String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([status])
+}
+
+model FollowUp {
+  id          String   @id @default(cuid())
+  callId      String
+  call        Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  template    String
+  waMessageId String?
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+
+  @@index([callId])
+}
+
+model AuditLog {
+  id      String   @id @default(cuid())
+  at      DateTime @default(now())
+  actor   String
+  action  String
+  payload Json
+
+  @@index([at])
+  @@index([action])
+}
+
